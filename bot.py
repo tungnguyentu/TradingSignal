@@ -159,10 +159,15 @@ async def signal_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         sig = make_decision(df)
         ts = df['ts'].iloc[-1].strftime("%Y-%m-%d %H:%M UTC")
 
+        def escape_md(text):
+            # Telegram MarkdownV2 requires these chars to be escaped: _*[]()~`>#+-=|{}.! 
+            escape_chars = r'_\*\[\]\(\)~`>#+\-=|{}.!'
+            return ''.join(['\\' + c if c in escape_chars else c for c in text])
+
         lines = [
-            f"📊 *{symbol}*  ⏱ *{timeframe}*  🏦 {market.upper()}",
-            f"Time: {ts}",
-            f"Decision: *{sig['decision']}*",
+            f"📊 *{escape_md(symbol)}*  ⏱ *{escape_md(timeframe)}*  🏦 {escape_md(market.upper())}",
+            f"Time: {escape_md(ts)}",
+            f"Decision: *{escape_md(sig['decision'])}*",
             f"Price: `{sig['entry']:.2f}`",
             f"EMA9/21: `{sig['ema9']:.2f}` / `{sig['ema21']:.2f}`",
             f"RSI14: `{sig['rsi']:.1f}`   ATR14: `{sig['atr']:.2f}`",
@@ -170,8 +175,8 @@ async def signal_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if sig["decision"] != "NO TRADE":
             lines += [f"SL: `{sig['sl']:.2f}`", f"TP: `{sig['tp']:.2f}` (RR 1:2 via ATR)"]
         if sig["reasons"]:
-            lines.append("Why: " + ", ".join(sig["reasons"]))
-        lines.append("\n⚠️ Not financial advice.")
+            lines.append("Why: " + escape_md(", ".join(sig["reasons"])))
+        lines.append(escape_md("\n⚠️ Not financial advice."))
 
         await update.message.reply_markdown_v2("\n".join(lines))
     except Exception as e:

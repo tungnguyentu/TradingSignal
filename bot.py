@@ -415,6 +415,8 @@ async def cmd_signal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     df = build_signals(sym, use_ha_in_ut=STATE["use_ha_in_ut"])
     row = last_closed_row(df)
     text = build_signal_text(sym, row)
+    if "⚠️ Chưa có đồng thuận 2 chỉ báo" in text:
+        return
 
     # Tùy chọn đặt lệnh: chỉ khi 2 chỉ báo đồng thuận
     if ENABLE_TRADING:

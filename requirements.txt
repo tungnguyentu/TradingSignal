@@ -1,4 +1,0 @@
-python-telegram-bot==21.6
-python-binance==1.0.19
-pandas
-python-dotenv

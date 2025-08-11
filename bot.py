@@ -352,26 +352,24 @@ async def cmd_auto_off(update: Update, context: ContextTypes.DEFAULT_TYPE):
     STATE["auto"] = False
     await update.message.reply_text("Đã tắt auto.")
 
-async def auto_loop(app: Application):
-    last_close_time = None
-    while True:
-        try:
-            if STATE["auto"]:
-                sym = STATE["symbol"]
-                df = build_signals(sym, use_ha_in_ut=STATE["use_ha_in_ut"])
-                row = last_closed_row(df)
-                ct = row["close_time"]
-                if last_close_time is None or ct != last_close_time:
-                    last_close_time = ct
-                    await send_msg(app, build_signal_text(sym, row))
-        except Exception as e:
-            log.exception(e)
-        await asyncio_sleep(15)  # check mỗi 15s
-
-# tiny helper for asyncio sleep to avoid import loop
-import asyncio
-async def asyncio_sleep(sec): 
-    await asyncio.sleep(sec)
+async def auto_check_job(context: ContextTypes.DEFAULT_TYPE):
+    """Job function to check for signals periodically"""
+    try:
+        if STATE["auto"]:
+            sym = STATE["symbol"]
+            df = build_signals(sym, use_ha_in_ut=STATE["use_ha_in_ut"])
+            row = last_closed_row(df)
+            ct = row["close_time"]
+            
+            # Store last check time in job context
+            if not hasattr(context.job, 'last_close_time'):
+                context.job.last_close_time = None
+                
+            if context.job.last_close_time is None or ct != context.job.last_close_time:
+                context.job.last_close_time = ct
+                await send_msg(context.application, build_signal_text(sym, row))
+    except Exception as e:
+        log.exception(e)
 
 def main():
     app = Application.builder().token(TELEGRAM_TOKEN).build()
@@ -384,9 +382,8 @@ def main():
     app.add_handler(CommandHandler("auto_on", cmd_auto_on))
     app.add_handler(CommandHandler("auto_off", cmd_auto_off))
 
-    # chạy auto loop song song
-    app.job_queue.run_repeating(lambda ctx: None, interval=60)  # giữ event loop sống
-    app.create_task(auto_loop(app))
+    # Schedule the auto check job to run every 15 seconds
+    app.job_queue.run_repeating(auto_check_job, interval=15, first=10)
 
     log.info("Bot started.")
     app.run_polling()

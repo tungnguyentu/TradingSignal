@@ -138,8 +138,12 @@ def ha_buy_sell(df_ha: pd.DataFrame, consecutive=3) -> pd.Series:
     buy = (color.rolling(consecutive).sum() == consecutive)
     sell = (color.rolling(consecutive).sum() == -consecutive)
     sig = pd.Series("HOLD", index=df_ha.index)
-    sig[buy & ~buy.shift(1).fillna(False)] = "BUY"
-    sig[sell & ~sell.shift(1).fillna(False)] = "SELL"
+    # Fix pandas FutureWarning by avoiding fillna and using boolean indexing
+    buy_prev = buy.shift(1)
+    sell_prev = sell.shift(1)
+    # Use isna() to handle NaN values explicitly
+    sig[buy & ~(buy_prev == True)] = "BUY"  # This handles NaN as False
+    sig[sell & ~(sell_prev == True)] = "SELL"  # This handles NaN as False
     return sig
 
 # ========================= DATA =========================
@@ -257,6 +261,9 @@ def place_order(symbol, side, entry_price, sl_price, tp_price):
 # ========================= TELEGRAM BOT =========================
 STATE = {"symbol": SYMBOL_DEFAULT, "auto": False, "use_ha_in_ut": True}
 
+# Global variable to store last close time for auto job
+AUTO_JOB_STATE = {"last_close_time": None}
+
 def fmt_now():
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
@@ -361,12 +368,9 @@ async def auto_check_job(context: ContextTypes.DEFAULT_TYPE):
             row = last_closed_row(df)
             ct = row["close_time"]
             
-            # Store last check time in job context
-            if not hasattr(context.job, 'last_close_time'):
-                context.job.last_close_time = None
-                
-            if context.job.last_close_time is None or ct != context.job.last_close_time:
-                context.job.last_close_time = ct
+            # Use global state to store last check time
+            if AUTO_JOB_STATE["last_close_time"] is None or ct != AUTO_JOB_STATE["last_close_time"]:
+                AUTO_JOB_STATE["last_close_time"] = ct
                 await send_msg(context.application, build_signal_text(sym, row))
     except Exception as e:
         log.exception(e)

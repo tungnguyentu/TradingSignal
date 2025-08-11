@@ -72,6 +72,7 @@ python bot.py
 
 ## Features
 
+- **Multi-Symbol Support**: Monitor multiple trading pairs simultaneously
 - **UT Bot Alerts**: Technical analysis indicator for trend detection
 - **Heikin Ashi**: Alternative candlestick representation for trend analysis
 - **Risk Management**: Position sizing based on percentage risk
@@ -81,12 +82,23 @@ python bot.py
 
 ## Commands
 
-- `/start` - Get started and see available commands
-- `/symbol <SYMBOL>` - Change trading symbol (default: BTCUSDT)
-- `/signal` - Get latest signal analysis
-- `/auto_on` - Enable automatic signal sending every 15 minutes
+### Symbol Management
+- `/symbol` - Show all symbols and current status
+- `/symbol add ETHUSDT` - Add a new symbol to monitor
+- `/symbol remove ETHUSDT` - Remove a symbol from monitoring
+- `/symbol set ETHUSDT` - Set current symbol for manual signals
+- `/symbol list` - List all monitored symbols
+- `/symbol BTCUSDT` - (Legacy) Set single symbol
+
+### Signal Analysis
+- `/signal` - Get latest signal for current symbol
+- `/signals_all` - Get signals for ALL monitored symbols
+- `/auto_on` - Enable automatic signal monitoring for ALL symbols
 - `/auto_off` - Disable automatic signals
-- `/status` - Check current bot status
+
+### General Commands
+- `/start` - Get started and see available commands
+- `/status` - Check current bot status and symbol list
 - `/use_ha on|off` - Toggle Heikin Ashi as UT Bot source
 
 ## Security Notes

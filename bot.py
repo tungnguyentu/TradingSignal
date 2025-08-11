@@ -2,6 +2,7 @@ import os
 import time
 import math
 import logging
+import asyncio
 from datetime import datetime, timezone
 
 import numpy as np
@@ -259,10 +260,15 @@ def place_order(symbol, side, entry_price, sl_price, tp_price):
         return {"status":"error","msg":str(e)}
 
 # ========================= TELEGRAM BOT =========================
-STATE = {"symbol": SYMBOL_DEFAULT, "auto": False, "use_ha_in_ut": True}
+STATE = {
+    "symbols": [SYMBOL_DEFAULT],  # List of symbols to monitor
+    "current_symbol": SYMBOL_DEFAULT,  # Currently selected symbol for manual commands
+    "auto": False, 
+    "use_ha_in_ut": True
+}
 
-# Global variable to store last close time for auto job
-AUTO_JOB_STATE = {"last_close_time": None}
+# Global variable to store last close time for auto job (per symbol)
+AUTO_JOB_STATE = {}  # Will store: {"BTCUSDT": "last_close_time", "ETHUSDT": "last_close_time", ...}
 
 def fmt_now():
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -295,29 +301,105 @@ def build_signal_text(symbol, row):
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Chào bạn! Bot tín hiệu Futures 15m (UT Bot + Heikin Ashi).\n"
-        f"/symbol {SYMBOL_DEFAULT} — đổi cặp\n"
-        "/signal — lấy tín hiệu mới nhất\n"
-        "/auto_on — bật gửi tín hiệu mỗi nến 15m\n"
-        "/auto_off — tắt\n"
-        "/status — xem trạng thái\n"
-        "/use_ha on|off — UT Bot dùng Heikin Ashi làm source\n"
-        f"Trading: {'ON' if ENABLE_TRADING else 'OFF (dry-run)'} | Testnet: {USE_TESTNET}"
+        "🤖 Chào bạn! Bot tín hiệu Futures 15m (UT Bot + Heikin Ashi)\n\n"
+        "📋 **Quản lý Symbols:**\n"
+        "/symbol — xem danh sách và trạng thái\n"
+        "/symbol add ETHUSDT — thêm symbol mới\n"
+        "/symbol remove ETHUSDT — xóa symbol\n"
+        "/symbol set ETHUSDT — chọn symbol hiện tại\n"
+        "/symbol list — xem tất cả symbols\n\n"
+        "📈 **Tín hiệu:**\n"
+        "/signal — lấy tín hiệu cho symbol hiện tại\n"
+        "/signals_all — lấy tín hiệu cho TẤT CẢ symbols\n"
+        "/auto_on — bật gửi tín hiệu tự động cho TẤT CẢ symbols\n"
+        "/auto_off — tắt tín hiệu tự động\n\n"
+        "⚙️ **Cài đặt:**\n"
+        "/status — xem trạng thái chi tiết\n"
+        "/use_ha on|off — UT Bot dùng Heikin Ashi làm source\n\n"
+        f"💼 Trading: {'ON' if ENABLE_TRADING else 'OFF (dry-run)'} | "
+        f"🌐 Testnet: {'ON' if USE_TESTNET else 'OFF'}"
     )
 
 async def cmd_symbol(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if context.args:
-        STATE["symbol"] = context.args[0].upper()
-        await update.message.reply_text(f"Đã đặt symbol = {STATE['symbol']}")
+        action = context.args[0].lower()
+        
+        if action == "add" and len(context.args) > 1:
+            # Add new symbol: /symbol add ETHUSDT
+            new_symbol = context.args[1].upper()
+            if new_symbol not in STATE["symbols"]:
+                STATE["symbols"].append(new_symbol)
+                await update.message.reply_text(f"✅ Đã thêm symbol: {new_symbol}\nDanh sách: {', '.join(STATE['symbols'])}")
+            else:
+                await update.message.reply_text(f"⚠️ Symbol {new_symbol} đã có trong danh sách")
+                
+        elif action == "remove" and len(context.args) > 1:
+            # Remove symbol: /symbol remove ETHUSDT
+            symbol_to_remove = context.args[1].upper()
+            if symbol_to_remove in STATE["symbols"] and len(STATE["symbols"]) > 1:
+                STATE["symbols"].remove(symbol_to_remove)
+                if STATE["current_symbol"] == symbol_to_remove:
+                    STATE["current_symbol"] = STATE["symbols"][0]
+                await update.message.reply_text(f"❌ Đã xóa symbol: {symbol_to_remove}\nDanh sách: {', '.join(STATE['symbols'])}")
+            elif symbol_to_remove not in STATE["symbols"]:
+                await update.message.reply_text(f"⚠️ Symbol {symbol_to_remove} không có trong danh sách")
+            else:
+                await update.message.reply_text("⚠️ Không thể xóa symbol cuối cùng")
+                
+        elif action == "set" and len(context.args) > 1:
+            # Set current symbol: /symbol set ETHUSDT
+            symbol_to_set = context.args[1].upper()
+            if symbol_to_set in STATE["symbols"]:
+                STATE["current_symbol"] = symbol_to_set
+                await update.message.reply_text(f"🎯 Đã đặt symbol hiện tại: {STATE['current_symbol']}")
+            else:
+                await update.message.reply_text(f"⚠️ Symbol {symbol_to_set} chưa có trong danh sách. Dùng /symbol add {symbol_to_set} trước")
+                
+        elif action == "list":
+            # List all symbols: /symbol list
+            current_mark = "👉"
+            symbol_list = []
+            for sym in STATE["symbols"]:
+                mark = current_mark if sym == STATE["current_symbol"] else "   "
+                symbol_list.append(f"{mark} {sym}")
+            await update.message.reply_text(f"📋 Danh sách symbols:\n" + "\n".join(symbol_list))
+            
+        else:
+            # Legacy: single symbol (backward compatibility): /symbol BTCUSDT
+            new_symbol = context.args[0].upper()
+            if new_symbol not in STATE["symbols"]:
+                STATE["symbols"].append(new_symbol)
+            STATE["current_symbol"] = new_symbol
+            await update.message.reply_text(f"✅ Đã đặt symbol: {STATE['current_symbol']}")
     else:
-        await update.message.reply_text(f"Symbol hiện tại: {STATE['symbol']}")
+        # Show current status
+        current_mark = "👉"
+        symbol_list = []
+        for sym in STATE["symbols"]:
+            mark = current_mark if sym == STATE["current_symbol"] else "   "
+            symbol_list.append(f"{mark} {sym}")
+        await update.message.reply_text(
+            f"📋 Danh sách symbols:\n" + "\n".join(symbol_list) + 
+            f"\n\n🎯 Hiện tại: {STATE['current_symbol']}" +
+            f"\n\n💡 Sử dụng:\n" +
+            f"/symbol add ETHUSDT - thêm symbol\n" +
+            f"/symbol remove ETHUSDT - xóa symbol\n" +
+            f"/symbol set ETHUSDT - chọn symbol hiện tại\n" +
+            f"/symbol list - xem danh sách"
+        )
 
 async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    symbol_count = len(STATE["symbols"])
+    symbols_text = ", ".join(STATE["symbols"]) if symbol_count <= 3 else f"{', '.join(STATE['symbols'][:3])}... ({symbol_count} total)"
+    
     await update.message.reply_text(
-        f"Symbol: {STATE['symbol']}\n"
-        f"Auto: {STATE['auto']}\n"
-        f"UT source= {'HeikinAshi' if STATE['use_ha_in_ut'] else 'Close'}\n"
-        f"Trading: {'ON' if ENABLE_TRADING else 'OFF (dry-run)'} | Testnet: {USE_TESTNET}"
+        f"📊 Trạng thái Bot:\n"
+        f"🎯 Symbol hiện tại: {STATE['current_symbol']}\n"
+        f"📋 Tất cả symbols ({symbol_count}): {symbols_text}\n"
+        f"🤖 Auto: {'ON' if STATE['auto'] else 'OFF'}\n"
+        f"📈 UT source: {'HeikinAshi' if STATE['use_ha_in_ut'] else 'Close'}\n"
+        f"💼 Trading: {'ON' if ENABLE_TRADING else 'OFF (dry-run)'}\n"
+        f"🌐 Testnet: {'ON' if USE_TESTNET else 'OFF'}"
     )
 
 async def cmd_use_ha(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -329,7 +411,7 @@ async def cmd_use_ha(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"Đã đặt UT source = {'HeikinAshi' if STATE['use_ha_in_ut'] else 'Close'}")
 
 async def cmd_signal(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    sym = STATE["symbol"]
+    sym = STATE["current_symbol"]
     df = build_signals(sym, use_ha_in_ut=STATE["use_ha_in_ut"])
     row = last_closed_row(df)
     text = build_signal_text(sym, row)
@@ -351,27 +433,71 @@ async def cmd_signal(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(text)
 
+async def cmd_signals_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Get signals for all symbols"""
+    if len(STATE["symbols"]) > 5:
+        await update.message.reply_text("⚠️ Quá nhiều symbols (>5). Dùng /signal để xem từng cái một.")
+        return
+        
+    messages = []
+    for sym in STATE["symbols"]:
+        try:
+            df = build_signals(sym, use_ha_in_ut=STATE["use_ha_in_ut"])
+            row = last_closed_row(df)
+            text = build_signal_text(sym, row)
+            messages.append(text)
+        except Exception as e:
+            messages.append(f"❌ {sym}: Lỗi khi lấy dữ liệu - {str(e)[:50]}")
+    
+    # Send all signals in one message if not too long, otherwise split
+    full_text = "\n" + "="*30 + "\n".join(messages)
+    if len(full_text) > 4000:  # Telegram message limit
+        for msg in messages:
+            await update.message.reply_text(msg)
+    else:
+        await update.message.reply_text(full_text)
+
 async def cmd_auto_on(update: Update, context: ContextTypes.DEFAULT_TYPE):
     STATE["auto"] = True
-    await update.message.reply_text("Đã bật auto. Bot sẽ gửi tín hiệu mỗi khi đóng nến 15m.")
+    symbol_count = len(STATE["symbols"])
+    await update.message.reply_text(
+        f"✅ Đã bật auto monitoring cho {symbol_count} symbol(s):\n"
+        f"{', '.join(STATE['symbols'])}\n\n"
+        f"Bot sẽ gửi tín hiệu mỗi khi có nến 15m mới."
+    )
 
 async def cmd_auto_off(update: Update, context: ContextTypes.DEFAULT_TYPE):
     STATE["auto"] = False
-    await update.message.reply_text("Đã tắt auto.")
+    await update.message.reply_text("❌ Đã tắt auto monitoring cho tất cả symbols.")
 
 async def auto_check_job(context: ContextTypes.DEFAULT_TYPE):
-    """Job function to check for signals periodically"""
+    """Job function to check for signals periodically for all symbols"""
     try:
         if STATE["auto"]:
-            sym = STATE["symbol"]
-            df = build_signals(sym, use_ha_in_ut=STATE["use_ha_in_ut"])
-            row = last_closed_row(df)
-            ct = row["close_time"]
-            
-            # Use global state to store last check time
-            if AUTO_JOB_STATE["last_close_time"] is None or ct != AUTO_JOB_STATE["last_close_time"]:
-                AUTO_JOB_STATE["last_close_time"] = ct
-                await send_msg(context.application, build_signal_text(sym, row))
+            for sym in STATE["symbols"]:
+                # Initialize symbol in AUTO_JOB_STATE if not exists
+                if sym not in AUTO_JOB_STATE:
+                    AUTO_JOB_STATE[sym] = None
+                
+                df = build_signals(sym, use_ha_in_ut=STATE["use_ha_in_ut"])
+                row = last_closed_row(df)
+                ct = row["close_time"]
+                
+                # Check if this is a new candle for this symbol
+                if AUTO_JOB_STATE[sym] is None or ct != AUTO_JOB_STATE[sym]:
+                    AUTO_JOB_STATE[sym] = ct
+                    signal_text = build_signal_text(sym, row)
+                    
+                    # Add symbol indicator for multi-symbol monitoring
+                    if len(STATE["symbols"]) > 1:
+                        signal_text = f"🔄 Auto Monitor\n{signal_text}"
+                    
+                    await send_msg(context.application, signal_text)
+                    
+                    # Optional: Add small delay between symbols to avoid rate limiting
+                    if len(STATE["symbols"]) > 1:
+                        await asyncio.sleep(1)
+                        
     except Exception as e:
         log.exception(e)
 
@@ -383,6 +509,7 @@ def main():
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("use_ha", cmd_use_ha))
     app.add_handler(CommandHandler("signal", cmd_signal))
+    app.add_handler(CommandHandler("signals_all", cmd_signals_all))
     app.add_handler(CommandHandler("auto_on", cmd_auto_on))
     app.add_handler(CommandHandler("auto_off", cmd_auto_off))
 

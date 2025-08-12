@@ -555,44 +555,44 @@ async def send_msg(app: Application, text: str):
 
 def build_signal_text(symbol, row):
     txt = (
-        f"\u23f1 {fmt_now()}\n"
+        f"⏱ {fmt_now()}\n"
         f"Symbol: {symbol}\n"
         f"Close: {row['close']:.2f}\n"
         f"UT: {row['UT_Signal']} | HA: {row['HA_Signal']}\n"
     )
     if row["UT_Signal"] == "BUY" and row["HA_Signal"] == "BUY":
         sl = float(row["UT_LongStop"]); r = row["close"] - sl; tp = row["close"] + TP_RR * r
-        txt += f"\u2705 Kết hợp: BUY\nSL ≈ {sl:.2f} | TP ≈ {tp:.2f}\n"
+        txt += f"✅ Ket hop: BUY\nSL ≈ {sl:.2f} | TP ≈ {tp:.2f}\n"
     elif row["UT_Signal"] == "SELL" and row["HA_Signal"] == "SELL":
         sl = float(row["UT_ShortStop"]); r = sl - row["close"];
         tp = row["close"] - TP_RR * r
-        txt += f"\u2705 Kết hợp: SELL\nSL ≈ {sl:.2f} | TP ≈ {tp:.2f}\n"
+        txt += f"✅ Ket hop: SELL\nSL ≈ {sl:.2f} | TP ≈ {tp:.2f}\n"
     else:
-        txt += "\u26a0\ufe0f Chưa có đồng thuận 2 chỉ báo.\n"
+        txt += "⚠️ Chua co dong thuan 2 chi bao.\n"
     return txt
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "\ud83e\uddd0 Chào bạn! Bot tín hiệu Futures 15m (UT Bot + Heikin Ashi)\n\n"
-        "\ud83d\udc4b **Quản lý Symbols:**\n"
-        "/symbol — xem danh sách và trạng thái\n"
-        "/symbol add ETHUSDT — thêm symbol mới\n"
-        "/symbol remove ETHUSDT — xóa symbol\n"
-        "/symbol set ETHUSDT — chọn symbol hiện tại\n"
-        "/symbol list — xem tất cả symbols\n\n"
-        "\ud83d\udcca **Tín hiệu:**\n"
-        "/signal — láy tín hiệu cho symbol hiện tại\n"
-        "/signals_all — tín hiệu cho TẤT CẢ symbols\n"
-        "/auto_on — bật auto\n"
-        "/auto_off — tắt auto\n\n"
-        "\ud83e\uddea **Backtest:**\n"
-        "/backtest [days] — backtest equity-curve (TP/SL cố định)\n"
-        "/backtest_rr [symbol] [RR] — backtest theo R + trailing ATR (vd: /backtest_rr BTCUSDT 2)\n\n"
-        "\u2699\ufe0f **Cài đặt:**\n"
-        "/status — xem trạng thái\n"
-        "/use_ha on|off — UT dùng Heikin Ashi làm source\n\n"
-        f"\ud83d\udcbc Trading: {'ON' if ENABLE_TRADING else 'OFF (dry-run)'} | "
-        f"\ud83c\udf10 Testnet: {'ON' if USE_TESTNET else 'OFF'}"
+        "🤖 Chao ban! Bot tin hieu Futures 15m (UT Bot + Heikin Ashi)\n\n"
+        "👋 **Quan ly Symbols:**\n"
+        "/symbol - xem danh sach va trang thai\n"
+        "/symbol add ETHUSDT - them symbol moi\n"
+        "/symbol remove ETHUSDT - xoa symbol\n"
+        "/symbol set ETHUSDT - chon symbol hien tai\n"
+        "/symbol list - xem tat ca symbols\n\n"
+        "📊 **Tin hieu:**\n"
+        "/signal - lay tin hieu cho symbol hien tai\n"
+        "/signals_all - tin hieu cho TAT CA symbols\n"
+        "/auto_on - bat auto\n"
+        "/auto_off - tat auto\n\n"
+        "🧪 **Backtest:**\n"
+        "/backtest [days] - backtest equity-curve (TP/SL co dinh)\n"
+        "/backtest_rr [symbol] [RR] - backtest theo R + trailing ATR (vd: /backtest_rr BTCUSDT 2)\n\n"
+        "⚙️ **Cai dat:**\n"
+        "/status - xem trang thai\n"
+        "/use_ha on|off - UT dung Heikin Ashi lam source\n\n"
+        f"💼 Trading: {'ON' if ENABLE_TRADING else 'OFF (dry-run)'} | "
+        f"🌐 Testnet: {'ON' if USE_TESTNET else 'OFF'}"
     )
 
 async def cmd_symbol(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -602,67 +602,67 @@ async def cmd_symbol(update: Update, context: ContextTypes.DEFAULT_TYPE):
             new_symbol = context.args[1].upper()
             if new_symbol not in STATE["symbols"]:
                 STATE["symbols"].append(new_symbol)
-                await update.message.reply_text(f"\u2705 Đã thêm symbol: {new_symbol}\nDanh sách: {', '.join(STATE['symbols'])}")
+                await update.message.reply_text(f"✅ Da them symbol: {new_symbol}\nDanh sach: {', '.join(STATE['symbols'])}")
             else:
-                await update.message.reply_text(f"\u26a0\ufe0f Symbol {new_symbol} đã có trong danh sách")
+                await update.message.reply_text(f"⚠️ Symbol {new_symbol} da co trong danh sach")
         elif action == "remove" and len(context.args) > 1:
             symbol_to_remove = context.args[1].upper()
             if symbol_to_remove in STATE["symbols"] and len(STATE["symbols"]) > 1:
                 STATE["symbols"].remove(symbol_to_remove)
                 if STATE["current_symbol"] == symbol_to_remove:
                     STATE["current_symbol"] = STATE["symbols"][0]
-                await update.message.reply_text(f"\u274c Đã xóa symbol: {symbol_to_remove}\nDanh sách: {', '.join(STATE['symbols'])}")
+                await update.message.reply_text(f"❌ Da xoa symbol: {symbol_to_remove}\nDanh sach: {', '.join(STATE['symbols'])}")
             elif symbol_to_remove not in STATE["symbols"]:
-                await update.message.reply_text(f"\u26a0\ufe0f Symbol {symbol_to_remove} không có trong danh sách")
+                await update.message.reply_text(f"⚠️ Symbol {symbol_to_remove} khong co trong danh sach")
             else:
-                await update.message.reply_text("\u26a0\ufe0f Không thể xóa symbol cuối cùng")
+                await update.message.reply_text("⚠️ Khong the xoa symbol cuoi cung")
         elif action == "set" and len(context.args) > 1:
             symbol_to_set = context.args[1].upper()
             if symbol_to_set in STATE["symbols"]:
                 STATE["current_symbol"] = symbol_to_set
-                await update.message.reply_text(f"\ud83c\udfaf Đã đặt symbol hiện tại: {STATE['current_symbol']}")
+                await update.message.reply_text(f"🎯 Da dat symbol hien tai: {STATE['current_symbol']}")
             else:
-                await update.message.reply_text(f"\u26a0\ufe0f Symbol {symbol_to_set} chưa có trong danh sách. Dùng /symbol add {symbol_to_set} trước")
+                await update.message.reply_text(f"⚠️ Symbol {symbol_to_set} chua co trong danh sach. Dung /symbol add {symbol_to_set} truoc")
         elif action == "list":
-            current_mark = "\ud83d\udd96"
+            current_mark = "🔖"
             symbol_list = []
             for sym in STATE["symbols"]:
                 mark = current_mark if sym == STATE["current_symbol"] else "   "
                 symbol_list.append(f"{mark} {sym}")
-            await update.message.reply_text(f"\ud83d\udccb Danh sách symbols:\n" + "\n".join(symbol_list))
+            await update.message.reply_text(f"📋 Danh sach symbols:\n" + "\n".join(symbol_list))
         else:
             new_symbol = context.args[0].upper()
             if new_symbol not in STATE["symbols"]:
                 STATE["symbols"].append(new_symbol)
             STATE["current_symbol"] = new_symbol
-            await update.message.reply_text(f"\u2705 Đã đặt symbol: {STATE['current_symbol']}")
+            await update.message.reply_text(f"✅ Da dat symbol: {STATE['current_symbol']}")
     else:
-        current_mark = "\ud83d\udd96"
+        current_mark = "🔖"
         symbol_list = []
         for sym in STATE["symbols"]:
             mark = current_mark if sym == STATE["current_symbol"] else "   "
             symbol_list.append(f"{mark} {sym}")
         await update.message.reply_text(
-            f"\ud83d\udccb Danh sách symbols:\n" + "\n".join(symbol_list) + 
-            f"\n\n\ud83c\udfaf Hiện tại: {STATE['current_symbol']}" +
-            f"\n\n\ud83d\udca1 Sử dụng:\n" +
-            f"/symbol add ETHUSDT - thêm symbol\n" +
-            f"/symbol remove ETHUSDT - xóa symbol\n" +
-            f"/symbol set ETHUSDT - chọn symbol hiện tại\n" +
-            f"/symbol list - xem danh sách"
+            f"📋 Danh sach symbols:\n" + "\n".join(symbol_list) + 
+            f"\n\n🎯 Hien tai: {STATE['current_symbol']}" +
+            f"\n\n💡 Su dung:\n" +
+            f"/symbol add ETHUSDT - them symbol\n" +
+            f"/symbol remove ETHUSDT - xoa symbol\n" +
+            f"/symbol set ETHUSDT - chon symbol hien tai\n" +
+            f"/symbol list - xem danh sach"
         )
 
 async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     symbol_count = len(STATE["symbols"])
     symbols_text = ", ".join(STATE["symbols"]) if symbol_count <= 3 else f"{', '.join(STATE['symbols'][:3])}... ({symbol_count} total)"
     await update.message.reply_text(
-        f"\ud83d\udcca Trạng thái Bot:\n"
-        f"\ud83c\udfaf Symbol hiện tại: {STATE['current_symbol']}\n"
-        f"\ud83d\udccb Tất cả symbols ({symbol_count}): {symbols_text}\n"
-        f"\ud83e\udd16 Auto: {'ON' if STATE['auto'] else 'OFF'}\n"
-        f"\ud83d\udcc8 UT source: {'HeikinAshi' if STATE['use_ha_in_ut'] else 'Close'}\n"
-        f"\ud83d\udcbc Trading: {'ON' if ENABLE_TRADING else 'OFF (dry-run)'}\n"
-        f"\ud83c\udf10 Testnet: {'ON' if USE_TESTNET else 'OFF'}"
+        f"📊 Trang thai Bot:\n"
+        f"🎯 Symbol hien tai: {STATE['current_symbol']}\n"
+        f"📋 Tat ca symbols ({symbol_count}): {symbols_text}\n"
+        f"🤖 Auto: {'ON' if STATE['auto'] else 'OFF'}\n"
+        f"📈 UT source: {'HeikinAshi' if STATE['use_ha_in_ut'] else 'Close'}\n"
+        f"💼 Trading: {'ON' if ENABLE_TRADING else 'OFF (dry-run)'}\n"
+        f"🌐 Testnet: {'ON' if USE_TESTNET else 'OFF'}"
     )
 
 async def cmd_use_ha(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -682,16 +682,16 @@ async def cmd_signal(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if row["UT_Signal"] == "BUY" and row["HA_Signal"] == "BUY":
             sl = float(row["UT_LongStop"]); r = row["close"] - sl; tp = row["close"] + TP_RR * r
             res = place_order(sym, "BUY", row["close"], sl, tp)
-            text += f"\n\ud83d\udce6 Order: {res}"
+            text += f"\n📦 Order: {res}"
         elif row["UT_Signal"] == "SELL" and row["HA_Signal"] == "SELL":
             sl = float(row["UT_ShortStop"]); r = sl - row["close"]; tp = row["close"] - TP_RR * r
             res = place_order(sym, "SELL", row["close"], sl, tp)
-            text += f"\n\ud83d\udce6 Order: {res}"
+            text += f"\n📦 Order: {res}"
     await update.message.reply_text(text)
 
 async def cmd_signals_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(STATE["symbols"]) > 5:
-        await update.message.reply_text("\u26a0\ufe0f Quá nhiều symbols (>5). Dùng /signal để xem từng cái một.")
+        await update.message.reply_text("⚠️ Qua nhieu symbols (>5). Dung /signal de xem tung cai mot.")
         return
     messages = []
     for sym in STATE["symbols"]:
@@ -701,7 +701,7 @@ async def cmd_signals_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text = build_signal_text(sym, row)
             messages.append(text)
         except Exception as e:
-            messages.append(f"\u274c {sym}: Lỗi khi lấy dữ liệu - {str(e)[:50]}")
+            messages.append(f"❌ {sym}: Loi khi lay du lieu - {str(e)[:50]}")
     full_text = "\n" + "="*30 + "\n".join(messages)
     if len(full_text) > 4000:
         for msg in messages:
@@ -713,14 +713,14 @@ async def cmd_auto_on(update: Update, context: ContextTypes.DEFAULT_TYPE):
     STATE["auto"] = True
     symbol_count = len(STATE["symbols"])
     await update.message.reply_text(
-        f"\u2705 \u0110ã bật auto monitoring cho {symbol_count} symbol(s):\n"
+        f"✅ Da bat auto monitoring cho {symbol_count} symbol(s):\n"
         f"{', '.join(STATE['symbols'])}\n\n"
-        f"Bot sẽ gửi tín hiệu mỗi khi có nến 15m mới."
+        f"Bot se gui tin hieu moi khi co nen 15m moi."
     )
 
 async def cmd_auto_off(update: Update, context: ContextTypes.DEFAULT_TYPE):
     STATE["auto"] = False
-    await update.message.reply_text("\u274c \u0110ã tắt auto monitoring cho tất cả symbols.")
+    await update.message.reply_text("❌ Da tat auto monitoring cho tat ca symbols.")
 
 async def cmd_backtest(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -731,35 +731,35 @@ async def cmd_backtest(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 days = int(context.args[0])
                 days = max(1, min(days, 90))
             except ValueError:
-                await update.message.reply_text("\u26a0\ufe0f Số ngày không hợp lệ. Sử dụng: /backtest [số_ngày]")
+                await update.message.reply_text("⚠️ So ngay khong hop le. Su dung: /backtest [so_ngay]")
                 return
-        await update.message.reply_text(f"\ud83d\udd04 \u0110ang chạy backtest cho {symbol} - {days} ngày...")
+        await update.message.reply_text(f"🔄 Dang chay backtest cho {symbol} - {days} ngay...")
         result, error = run_backtest(symbol, days=days, use_ha_in_ut=STATE["use_ha_in_ut"])
         if error or result is None:
-            await update.message.reply_text(f"\u274c Lỗi backtest: {error}")
+            await update.message.reply_text(f"❌ Loi backtest: {error}")
             return
         if result.total_trades == 0:
-            await update.message.reply_text(f"\u26a0\ufe0f Không có trade nào được thực hiện trong {days} ngày qua.")
+            await update.message.reply_text(f"⚠️ Khong co trade nao duoc thuc hien trong {days} ngay qua.")
             return
         summary = result.get_summary()
         await update.message.reply_text(summary)
         if len(result.trades) > 0:
             recent_trades = result.trades[-5:]
-            trades_text = "\ud83d\udccb **5 TRADES GẦN NHẤT:**\n"
+            trades_text = "📋 **5 TRADES GAN NHAT:**\n"
             for i, trade in enumerate(recent_trades, 1):
-                profit_emoji = "\ud83d\udc9a" if trade['pnl'] > 0 else "\u2764\ufe0f"
-                trades_text += f"{i}. {profit_emoji} {trade['side']} @{trade['entry_price']:.4f} \u2192 {trade['exit_price']:.4f}\n"
+                profit_emoji = "💚" if trade['pnl'] > 0 else "❤️"
+                trades_text += f"{i}. {profit_emoji} {trade['side']} @{trade['entry_price']:.4f} → {trade['exit_price']:.4f}\n"
                 trades_text += f"   P&L: ${trade['pnl']:+.2f} ({trade['pnl_pct']:+.1f}%) - {trade['reason']}\n\n"
             if len(trades_text) < 4000:
                 await update.message.reply_text(trades_text)
     except Exception as e:
-        await update.message.reply_text(f"\u274c Lỗi khi chạy backtest: {str(e)}")
+        await update.message.reply_text(f"❌ Loi khi chay backtest: {str(e)}")
         log.exception(e)
 
 async def cmd_backtest_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         if len(STATE["symbols"]) > 5:
-            await update.message.reply_text("\u26a0\ufe0f Quá nhiều symbols (>5). Dùng /backtest để test từng cái một.")
+            await update.message.reply_text("⚠️ Qua nhieu symbols (>5). Dung /backtest de test tung cai mot.")
             return
         days = 30
         if context.args:
@@ -767,32 +767,32 @@ async def cmd_backtest_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 days = int(context.args[0])
                 days = max(1, min(days, 90))
             except ValueError:
-                await update.message.reply_text("\u26a0\ufe0f Số ngày không hợp lệ. Sử dụng: /backtest_all [số_ngày]")
+                await update.message.reply_text("⚠️ So ngay khong hop le. Su dung: /backtest_all [so_ngay]")
                 return
-        await update.message.reply_text(f"\ud83d\udd04 \u0110ang chạy backtest cho {len(STATE['symbols'])} symbols - {days} ngày...")
+        await update.message.reply_text(f"🔄 Dang chay backtest cho {len(STATE['symbols'])} symbols - {days} ngay...")
         all_results = []
         for symbol in STATE["symbols"]:
             result, error = run_backtest(symbol, days=days, use_ha_in_ut=STATE["use_ha_in_ut"])
             if error or result is None:
-                all_results.append(f"\u274c {symbol}: {error}"); continue
+                all_results.append(f"❌ {symbol}: {error}"); continue
             if result.total_trades == 0:
-                all_results.append(f"\u26a0\ufe0f {symbol}: Không có trades"); continue
+                all_results.append(f"⚠️ {symbol}: Khong co trades"); continue
             win_rate = result.winning_trades / result.total_trades * 100
             total_return = (result.current_balance - result.initial_balance) / result.initial_balance * 100
             all_results.append(
-                f"\ud83d\udcca **{symbol}**\n"
+                f"📊 **{symbol}**\n"
                 f"   Trades: {result.total_trades} | Win: {win_rate:.1f}%\n"
                 f"   Return: {total_return:+.2f}% | DD: {result.max_drawdown:.2f}%\n"
                 f"   P&L: ${result.total_pnl:+,.2f}"
             )
-        summary_text = f"\ud83d\udcc8 **BACKTEST TẤT CẢ SYMBOLS ({days} ngày)**\n\n" + "\n\n".join(all_results)
+        summary_text = f"📈 **BACKTEST TAT CA SYMBOLS ({days} ngay)**\n\n" + "\n\n".join(all_results)
         if len(summary_text) > 4000:
             for result in all_results:
                 await update.message.reply_text(result)
         else:
             await update.message.reply_text(summary_text)
     except Exception as e:
-        await update.message.reply_text(f"\u274c Lỗi khi chạy backtest: {str(e)}")
+        await update.message.reply_text(f"❌ Loi khi chay backtest: {str(e)}")
         log.exception(e)
 
 # ------- New command: RR/Winrate backtest with ATR trailing -------
@@ -821,7 +821,7 @@ async def cmd_backtest_rr(update: Update, context: ContextTypes.DEFAULT_TYPE):
         limit=BACKTEST_LIMIT
     )
     text = (
-        f"\ud83d\udcca Backtest RR ({res['symbol']})\n"
+        f"📊 Backtest RR ({res['symbol']})\n"
         f"Trades: {res['trades']} | Wins: {res['wins']} | Losses: {res['losses']}\n"
         f"Winrate: {res['winrate_pct']}% | PF: {res['profit_factor']}\n"
         f"Total R: {res['total_R']} | Avg R: {res['avg_R']}\n"
@@ -843,7 +843,7 @@ async def auto_check_job(context: ContextTypes.DEFAULT_TYPE):
                     AUTO_JOB_STATE[sym] = ct
                     signal_text = build_signal_text(sym, row)
                     if len(STATE["symbols"]) > 1:
-                        signal_text = f"\ud83d\udd04 Auto Monitor\n{signal_text}"
+                        signal_text = f"🔄 Auto Monitor\n{signal_text}"
                     await send_msg(context.application, signal_text)
                     if len(STATE["symbols"]) > 1:
                         await asyncio.sleep(1)
